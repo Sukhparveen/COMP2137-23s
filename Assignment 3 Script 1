@@ -1,0 +1,50 @@
+#!/bin/bash
+#Name: Sukhparveen Kaur
+#Assignment 3 Linux Script 1
+# Function to handle success and error messages
+handle_result() {
+    if [ $1 -eq 0 ]; then
+        echo "SUCCESS: $2"
+    else
+        echo "ERROR: $2"
+        exit 1
+    fi
+}
+
+# Set hostname to 'loghost'
+new_hostname="loghost"
+hostnamectl set-hostname $new_hostname
+handle_result $? "Setting hostname to '$new_hostname'"
+
+# Change IP address
+new_ip="192.168.1.3/24"
+interface="eth0"
+ip addr add $new_ip dev $interface
+handle_result $? "Setting IP address to '$new_ip' on '$interface'"
+
+# Add entry to /etc/hosts
+host_entry="192.168.1.4 webhost"
+echo $host_entry | tee -a /etc/hosts
+handle_result $? "Adding entry '$host_entry' to /etc/hosts"
+
+# Install and configure UFW
+if ! dpkg -l | grep -E '^ii' | grep -q ufw; then
+    apt-get install -y ufw
+fi
+ufw_rule="allow from 172.16.1.0/24 to any port 514/udp"
+ufw $ufw_rule
+handle_result $? "Installing and configuring UFW with rule '$ufw_rule'"
+
+# Configure rsyslog for UDP
+sed -i '/imudp/s/^#//g' /etc/rsyslog.conf
+sed -i '/UDPServerRun/s/^#//g' /etc/rsyslog.conf
+systemctl restart rsyslog
+handle_result $? "Configuring rsyslog to listen for UDP connections"
+
+# Provide a detailed report
+echo "Configuration on the server completed:"
+echo "- Hostname set to '$new_hostname'"
+echo "- IP address set to '$new_ip' on '$interface'"
+echo "- Added entry '$host_entry' to /etc/hosts"
+echo "- Installed and configured UFW to allow connections to port 514/udp from the management network"
+echo "- Configured rsyslog to listen for UDP connections"
