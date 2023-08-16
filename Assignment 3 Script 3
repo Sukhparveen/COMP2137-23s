@@ -1,0 +1,60 @@
+#!/bin/bash
+# Name: Sukhparveen Kaur
+# Assignment: Linux Assignment 3 Script 3
+
+# IMPORTANT: Before running this script, ensure you have saved the first two scripts at the following paths:
+# /etc/server1-configure.sh
+# /etc/server2-configure.sh
+
+# Define a function to run commands on the target machine using SSH
+ssh_connect() {
+    ssh -o "StrictHostKeyChecking=no" remoteadmin@$1 "$2"
+}
+
+# Define a function to check the success of a command execution
+check() {
+    if [ $? -eq 0 ]; then
+        echo "SUCCESS: $1"
+    else
+        echo "ERROR: $1"
+        exit 1
+    fi
+}
+
+# Configure server1   
+server1_mgmt_ip="172.16.1.10"
+server1_report=$(ssh_connect "$server1_mgmt_ip" "/etc/server1-configure.sh")
+
+echo "Server1 Configuration Report:"
+echo "$server1_report"
+
+# Configure server2     
+server2_mgmt_ip="172.16.1.11"
+server2_report=$(ssh_connect "$server2_mgmt_ip" "/etc/server2-configure.sh")
+
+echo "Server2 Configuration Report:"
+echo "$server2_report"
+
+# Update NMS Configuration
+
+# Update /etc/hosts on NMS to include server IPs
+echo "$server1_mgmt_ip loghost" | sudo tee -a /etc/hosts
+echo "$server2_mgmt_ip webhost" | sudo tee -a /etc/hosts
+
+# Verification for Apache 2 and Syslog         
+
+echo "Verifying Apache configuration on webhost..."
+apache_verification=$(curl -s http://webhost)
+if [[ "$apache_verification" =~ "Apache2 Ubuntu Default Page" ]]; then
+    echo "Apache configuration on webhost is correct."
+else
+    echo "Apache configuration on webhost is not correct."
+fi
+
+echo "Verifying syslog configuration on loghost..."
+loghost_logs=$(ssh remoteadmin@loghost grep webhost /var/log/syslog)
+if [[ -n "$loghost_logs" ]]; then
+    echo "Syslog configuration on loghost is correct."
+else
+    echo "Syslog configuration on loghost is not correct."
+fi
